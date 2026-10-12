@@ -15,14 +15,20 @@ Child keys never reach the upstream. The master upstream key stays server-side o
 - macOS or Linux, Python 3.12+ — easiest via [uv](https://docs.astral.sh/uv/): `brew install uv`
 - 9router (or any OpenAI-compatible endpoint) reachable from this machine
 
-## Move the code from your MacBook to the MacBook Air
+## Get the code onto the MacBook Air
 
-The `.venv` is machine-specific — never copy it. Copy source only; rebuild deps on the Air.
+The `.venv` is machine-specific — never copy it. Rebuild deps on the Air.
 
-1. Zip source (excludes venv/db/env) and AirDrop it, or use git:
+1. Easiest: on the Air, download the ZIP from GitHub (`Code` → `Download ZIP`), or clone:
 
    ```sh
-   cd ~/projects/KidsProxy-goatfish
+   git clone https://github.com/alexlegasg-afk/KidsProxy.git
+   ```
+
+   Or zip source locally and AirDrop it:
+
+   ```sh
+   cd ~/projects/KidsProxy
    zip -r ~/Desktop/kidsproxy.zip . -x ".venv/*" "*.db*" ".env" "__pycache__/*" ".pytest_cache/*"
    ```
 
@@ -30,8 +36,8 @@ The `.venv` is machine-specific — never copy it. Copy source only; rebuild dep
 
    ```sh
    mkdir -p ~/projects && cd ~/projects
-   unzip ~/Desktop/kidsproxy.zip -d KidsProxy-goatfish
-   cd KidsProxy-goatfish
+   unzip ~/Downloads/KidsProxy-main.zip -d KidsProxy   # GitHub ZIP: KidsProxy-main.zip
+   cd KidsProxy
    uv sync            # creates fresh .venv, installs all deps
    ```
 
@@ -40,7 +46,7 @@ The `.venv` is machine-specific — never copy it. Copy source only; rebuild dep
 ## First run (on the Air)
 
 ```sh
-cd ~/projects/KidsProxy-goatfish
+cd ~/projects/KidsProxy
 cp .env.example .env
 ```
 
@@ -121,7 +127,7 @@ cat > ~/Library/LaunchAgents/com.kidsproxy.plist <<PLIST
   <key>Label</key><string>com.kidsproxy</string>
   <key>ProgramArguments</key><array>
     <string>/opt/homebrew/bin/uv</string><string>run</string>
-    <string>--directory</string><string>$HOME/projects/KidsProxy-goatfish</string>
+    <string>--directory</string><string>$HOME/projects/KidsProxy</string>
     <string>uvicorn</string><string>app.main:app</string>
     <string>--host</string><string>127.0.0.1</string><string>--port</string><string>8787</string>
   </array>
