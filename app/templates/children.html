@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}KidsProxy — Children{% endblock %}
+{% block body %}
+{% if newkey %}
+<div class="card" style="border:2px solid var(--ok)">
+  <h3>New API key — copy it now, it is shown once</h3>
+  <div class="key">{{ newkey }}</div>
+  <p class="muted">Base URL for the kid's app: <code>http://this-server:8000/v1</code></p>
+</div>
+{% endif %}
+{% if request.query_params.get('created') %}<p class="muted">Created child <b>{{ request.query_params.get('created') }}</b>. Generate an API key below.</p>{% endif %}
+{% if request.query_params.get('credited') %}<p class="muted">Credited {{ request.query_params.get('credited') }}.</p>{% endif %}
+
+<h2>Add child</h2>
+<form method="post" action="/admin/children/create" class="row">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div><label>Slug (lowercase, used in key)</label><input name="slug" required pattern="[a-z0-9]{1,20}"></div>
+  <div><label>Display name</label><input name="name"></div>
+  <button>Add child</button>
+</form>
+
+{% for row in rows %}
+<h2 id="child-{{ row.c.id }}">{{ row.c.name }} {% if not row.c.active %}<span class="badge b-uncertain">paused</span>{% endif %}</h2>
+<div class="cards">
+  <div class="card"><h3>Available</h3><div class="big">{{ (row.bal.available_micro if row.bal else 0) | usd }}</div>
+    <div class="muted">reserved {{ (row.bal.reserved_micro if row.bal else 0) | usd }} · lifetime in {{ (row.c.lifetime_in or 0) | usd }} / out {{ (row.c.lifetime_out or 0) | usd }}</div></div>
+  <div class="card">
+    <h3>Add credit</h3>
+    <form method="post" action="/admin/child/{{ row.c.id }}/credit">
+      <input type="hidden" name="idem" value="{{ row.idem }}">
+      <div class="row">
+        <div><label>USD (negative to remove)</label><input name="dollars" value="5.00" required></div>
+        <div><label>Reason</label><input name="reason" placeholder="allowance"></div>
+        <button>Credit</button>
+      </div>
+    </form>
+  </div>
+  <div class="card">
+    <h3>Keys & status</h3>
+    {% for k in row.api_keys %}
+      <div>{{ k.label }} · {{ k.prefix }}…{% if not k.active %} <span class="badge b-uncertain">revoked</span>{% endif %}
+      {% if k.active %}
+      <form class="inline" method="post" action="/admin/child/{{ row.c.id }}/revoke/{{ k.id }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger">Revoke</button>
+      </form>{% endif %}</div>
+    {% else %}<div class="muted">no key yet</div>{% endfor %}
+    <form method="post" action="/admin/child/{{ row.c.id }}/key" style="margin-top:.5rem">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button>Generate new key</button>
+    </form>
+    <form method="post" action="/admin/child/{{ row.c.id }}/active" style="margin-top:.5rem">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="active" value="{{ 0 if row.c.active else 1 }}">
+      <button class="sec">{{ "Pause account" if row.c.active else "Resume account" }}</button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

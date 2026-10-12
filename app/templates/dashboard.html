@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}KidsProxy — Overview{% endblock %}
+{% block head %}<script src="/static/chart.umd.min.js"></script>{% endblock %}
+{% block body %}
+<div class="cards">
+  <div class="card"><h3>Family balance</h3><div class="big">{{ (children | map(attribute='avail') | sum) | usd }}</div>
+    <div class="muted">reserved: {{ (children | map(attribute='resv') | sum) | usd }}</div></div>
+  <div class="card"><h3>Spend today</h3><div class="big">{{ (children | map(attribute='day') | sum) | usd }}</div></div>
+  <div class="card"><h3>Spend this month</h3><div class="big">{{ (children | map(attribute='month') | sum) | usd }}</div></div>
+  <div class="card"><h3>Pricing /M tokens</h3><div class="muted">in {{ (rates.input_per_m / 1000000) | round(4) }} · out {{ (rates.output_per_m / 1000000) | round(4) }} · cached {{ (rates.cached_input_per_m / 1000000) | round(4) }}</div></div>
+</div>
+
+<h2>Spend, last 14 days</h2>
+<div class="card"><canvas id="chart" height="90"></canvas></div>
+
+<h2>Children</h2>
+<table>
+<tr><th>Child</th><th>Available</th><th>Reserved</th><th>Today</th><th>Month</th></tr>
+{% for pc in children %}
+<tr>
+  <td><a href="/admin/children#child-{{ pc.c.id }}">{{ pc.c.name }}</a>{% if not pc.c.active %} <span class="badge b-uncertain">paused</span>{% endif %}</td>
+  <td>{{ pc.avail | usd }}</td><td class="muted">{{ pc.resv | usd }}</td>
+  <td>{{ pc.day | usd }}</td><td>{{ pc.month | usd }}</td>
+</tr>
+{% endfor %}
+</table>
+
+<h2>Recent requests</h2>
+<table>
+<tr><th>Time</th><th>Child</th><th>Model</th><th>Stream</th><th>Tokens in/out/cached</th><th>Charge</th><th>Status</th></tr>
+{% for r in recent %}
+<tr>
+  <td class="muted">{{ r.created_at[:19] }}</td>
+  <td>{{ names.get(r.child_id, r.child_id) }}</td>
+  <td>{{ r.model }}</td>
+  <td>{{ "yes" if r.streamed else "no" }}</td>
+  <td>{{ r.prompt_tokens or "—" }}/{{ r.completion_tokens or "—" }}/{{ r.cached_tokens or 0 }}</td>
+  <td>{{ (r.charge_micro or 0) | usd }}</td>
+  <td><span class="badge b-{{ r.status }}">{{ r.status }}</span></td>
+</tr>
+{% endfor %}
+</table>
+
+<script>
+fetch('/admin/data/usage.json').then(r => r.json()).then(d => {
+  new Chart(document.getElementById('chart'), {
+    type: 'bar',
+    data: { labels: d.days, datasets: [{ label: 'USD', data: d.family }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+});
+</script>
+{% endblock %}

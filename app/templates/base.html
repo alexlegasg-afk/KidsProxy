@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}KidsProxy{% endblock %}</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--ink:#1c2333;--mut:#6b7280;--acc:#4f46e5;--bad:#dc2626;--ok:#16a34a}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--acc);color:#fff;padding:.7rem 1rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
+header a{color:#fff;text-decoration:none;font-weight:600}header a.dim{opacity:.75;font-weight:400}
+main{max-width:1100px;margin:1rem auto;padding:0 1rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.8rem}
+.card{background:var(--card);border-radius:10px;padding:1rem;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card h3{margin:0 0 .4rem;font-size:.85rem;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.big{font-size:1.5rem;font-weight:700}table{width:100%;border-collapse:collapse;background:var(--card);border-radius:10px;overflow:hidden}
+th,td{padding:.5rem .6rem;text-align:left;border-bottom:1px solid #eef0f4;font-size:.92rem}
+th{background:#f0f1f7;color:var(--mut);font-size:.78rem;text-transform:uppercase}
+.badge{padding:.1rem .5rem;border-radius:99px;font-size:.75rem;font-weight:600}
+.b-completed{background:#dcfce7;color:var(--ok)}.b-pending{background:#fef9c3;color:#a16207}
+.b-uncertain{background:#fee2e2;color:var(--bad)}.b-upstream_error{background:#e0e7ff;color:#4338ca}
+form.inline{display:inline}input,select{padding:.45rem .6rem;border:1px solid #d1d5db;border-radius:8px;font:inherit}
+button{padding:.45rem .9rem;border:0;border-radius:8px;background:var(--acc);color:#fff;font:inherit;cursor:pointer}
+button.sec{background:#e5e7eb;color:var(--ink)}button.danger{background:var(--bad)}
+.muted{color:var(--mut);font-size:.85rem}.key{font-family:ui-monospace,monospace;word-break:break-all;background:#f3f4f6;padding:.5rem;border-radius:8px}
+h2{margin:1.4rem 0 .6rem}label{display:block;margin:.5rem 0 .2rem;font-size:.85rem;color:var(--mut)}
+.row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:end}
+</style>
+{% block head %}{% endblock %}
+</head>
+<body>
+{% if show_nav|default(true) %}
+<header>
+  <a href="/admin/">KidsProxy</a>
+  <a class="dim" href="/admin/children">Children</a>
+  <a class="dim" href="/admin/settings">Settings</a>
+  <form class="inline" method="post" action="/admin/logout" style="margin-left:auto"><button class="sec">Log out</button></form>
+</header>
+{% endif %}
+<main>{% block body %}{% endblock %}</main>
+</body>
+</html>

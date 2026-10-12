@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}KidsProxy — Settings{% endblock %}
+{% block body %}
+{% if request.query_params.get('saved') %}<p class="muted">Saved.</p>{% endif %}
+<form method="post" action="/admin/settings">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+
+<h2>Pricing (USD per 1M tokens)</h2>
+<div class="card row">
+  <div><label>Input</label><input name="price_input_usd" step="0.0001" value="{{ price_input }}"></div>
+  <div><label>Output</label><input name="price_output_usd" step="0.0001" value="{{ price_output }}"></div>
+  <div><label>Cached input</label><input name="price_cached_usd" step="0.0001" value="{{ price_cached }}"></div>
+</div>
+
+<h2>Limits (applies to children without their own override)</h2>
+<div class="card">
+  <div class="row">
+    <div><label>Min balance to start a request (USD)</label><input name="min_start_balance_usd" step="0.01" value="{{ min_start }}"></div>
+    <div><label>Max cost per request (USD, 0 = no cap)</label><input name="max_request_cost_usd" step="0.01" value="{{ max_cost }}"></div>
+    <div><label>Daily limit (USD, 0 = none)</label><input name="daily_limit_usd" step="0.01" value="{{ daily }}"></div>
+    <div><label>Monthly limit (USD, 0 = none)</label><input name="monthly_limit_usd" step="0.01" value="{{ monthly }}"></div>
+  </div>
+  <div class="row">
+    <div><label>Max output tokens</label><input name="max_output_tokens" value="{{ max_output }}"></div>
+    <div><label>Allowed hours (e.g. 7-21, blank = any)</label><input name="allowed_hours" value="{{ allowed_hours }}"></div>
+    <div><label>Timezone</label><input name="tz" value="{{ tz }}"></div>
+  </div>
+  <div><label>Allowed models (comma-separated, blank = any)</label><input name="allowed_models" value="{{ allowed_models }}" style="width:100%"></div>
+  <p><button type="submit">Save settings</button></p>
+</div>
+</form>
+
+<div class="card" style="margin-top:1rem">
+  <h3>Per-child overrides</h3>
+  <p class="muted">Child rows can carry their own daily_limit_micro / monthly_limit_micro / allowed_hours. Set via SQL for now; the family values above are the default for every child.</p>
+</div>
+{% endblock %}
