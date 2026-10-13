@@ -41,7 +41,8 @@ echo
 echo "2) upstream $UP/v1/models with configured key"
 up_headers=(-H "Authorization: Bearer ${KP_UPSTREAM_API_KEY:-none}")
 [[ -z "${KP_UPSTREAM_API_KEY:-}" ]] && up_headers=(-H "Authorization: Bearer none")
-code="$(curl -s -o "$tmp/up.json" -w '%{http_code}' --max-time 15 "${up_headers[@]}" "$UP/v1/models" || echo 000)"
+code="$(curl -s -o "$tmp/up.json" -w '%{http_code}' --max-time 15 "${up_headers[@]}" "$UP/v1/models" || true)"
+[[ -n "$code" ]] || code=000
 case "$code" in
   200) ok "upstream responded 200" ;;
   401|403)
@@ -57,7 +58,7 @@ esac
 
 echo
 echo "3) requests through the proxy"
-read -r -s -p "Child API key (sk-..., input hidden; press Enter to skip): " CK; echo
+read -r -s -p "Child API key (sk-..., input hidden; press Enter to skip): " CK || true; echo
 if [[ -z "$CK" ]]; then
   echo "SKIP  no child key provided — proxy hops not tested"
 else
@@ -83,7 +84,8 @@ else
     scode="$(curl -s -o "$tmp/ns.json" -w '%{http_code}' --max-time 60 \
       -H "Authorization: Bearer $CK" -H 'Content-Type: application/json' \
       -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":16}" \
-      "$PROXY/v1/chat/completions" || echo 000)"
+      "$PROXY/v1/chat/completions" || true)"
+    [[ -n "$scode" ]] || scode=000
     if [[ "$scode" == 200 ]] && "${PY[@]}" -c 'import json,sys; json.load(open(sys.argv[1]))' "$tmp/ns.json" 2>/dev/null; then
       ok "non-streaming request: 200, valid JSON"
     else
@@ -101,7 +103,8 @@ else
     stcode="$(curl -s -N -o "$tmp/st.txt" -w '%{http_code}' --max-time 60 \
       -H "Authorization: Bearer $CK" -H 'Content-Type: application/json' \
       -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":16,\"stream\":true}" \
-      "$PROXY/v1/chat/completions" || echo 000)"
+      "$PROXY/v1/chat/completions" || true)"
+    [[ -n "$stcode" ]] || stcode=000
     if [[ "$stcode" == 200 ]] && grep -q '^data: ' "$tmp/st.txt"; then
       ok "streaming request: 200, SSE data: chunks"
     else

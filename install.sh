@@ -29,11 +29,12 @@ write_env() {
   local base key models
   echo
   echo "KidsProxy needs three settings to reach your 9router upstream."
-  read -r -p "Upstream base URL (default http://127.0.0.1:20128, no /v1 suffix): " base
+  read -r -p "Upstream base URL (default http://127.0.0.1:20128, no /v1 suffix): " base || true
   base="${base:-http://127.0.0.1:20128}"
   base="${base%/v1}"; base="${base%/}"        # tolerate a pasted /v1 or trailing slash
-  read -r -s -p "Upstream API key (the 9router key; input hidden): " key; echo
-  read -r -p "Model allowlist, comma-separated model IDs (default: the single model you enter now; empty = all models): " models
+  read -r -s -p "Upstream API key (the 9router key; input hidden): " key || true; echo
+  read -r -p "Model allowlist, comma-separated model IDs (default: the single model you enter now; empty = all models): " models || true
+  key="${key:-}"; models="${models:-}"
   cat > .env <<EOF
 # Written by install.sh $(date +%Y-%m-%d). Editable in the dashboard under Settings.
 KP_DB_PATH=./kidsproxy.db
@@ -47,7 +48,7 @@ EOF
 
 if [[ -f .env ]]; then
   echo ".env already exists — keeping it."
-  read -r -p "Overwrite with fresh values? [y/N] " ow
+  read -r -p "Overwrite with fresh values? [y/N] " ow || true
   [[ "$ow" =~ ^[Yy] ]] && write_env
 else
   write_env
@@ -57,7 +58,16 @@ fi
 note "Initialising database (schema + settings)..."
 uv run python -m app.cli init-db
 note "Set the parent-dashboard admin password (hidden prompt; re-running overwrites it)."
-uv run python -m app.cli set-admin-password
+# Shell-side hidden read (not getpass): getpass's stdin fallback buffers and
+# would swallow the remaining answers when input is piped.
+admin_pw=""
+read -r -s -p "admin password: " admin_pw || true; echo
+if [[ -n "$admin_pw" ]]; then
+  KP_ADMIN_PASSWORD="$admin_pw" uv run python -m app.cli set-admin-password
+else
+  note "no password entered — skipped (set later: uv run python -m app.cli set-admin-password)"
+fi
+unset admin_pw
 
 # --- 5. children ------------------------------------------------------------
 gen_host_ip() {
@@ -70,7 +80,7 @@ gen_host_ip() {
   echo "$ip"
 }
 
-read -r -p "How many children to add? [0] " nkids
+read -r -p "How many children to add? [0] " nkids || true
 nkids="${nkids:-0}"
 [[ "$nkids" =~ ^[0-9]+$ ]] || die "not a number: $nkids"
 
@@ -79,11 +89,11 @@ if [[ "$nkids" -gt 0 ]]; then
   ip="$(gen_host_ip)"
   for ((i = 1; i <= nkids; i++)); do
     echo
-    read -r -p "Child #$i slug (lowercase, e.g. mia): " slug
+    read -r -p "Child #$i slug (lowercase, e.g. mia): " slug || true
     [[ -n "$slug" ]] || die "slug required"
-    read -r -p "Child #$i display name (default $slug): " disp
+    read -r -p "Child #$i display name (default $slug): " disp || true
     disp="${disp:-$slug}"
-    read -r -p "Child #$i starting credit in USD (default 5): " credit
+    read -r -p "Child #$i starting credit in USD (default 5): " credit || true
     credit="${credit:-5}"
 
     # Capture CLI output: the API key lands in the generated file only, never on screen.
@@ -118,7 +128,7 @@ fi
 
 # --- 6. optional launchd agent (macOS) --------------------------------------
 if [[ "$(uname -s)" == "Darwin" ]]; then
-  read -r -p "Install the launchd agent (start at login, keep running)? [y/N] " ld
+  read -r -p "Install the launchd agent (start at login, keep running)? [y/N] " ld || true
   if [[ "$ld" =~ ^[Yy] ]]; then
     uv_bin="$(command -v uv)"
     plist="$HOME/Library/LaunchAgents/com.kidsproxy.plist"
