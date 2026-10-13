@@ -4,16 +4,17 @@ Live integration procedure: see README "Manual integration test".
 """
 
 import asyncio
+import re
 from datetime import datetime, timezone
 
 import httpx
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 import app.database as database
 from app import billing, policies
 from app.auth import authenticate, rotate_key, hash_password
-from app.models import Balance, Child, LedgerEntry, Reservation, RequestRecord, Setting
+from app.models import ApiKey, Balance, Child, LedgerEntry, Reservation, RequestRecord, Setting
 
 from tests.conftest import auth, chat_body, completion_json, make_child, mock_upstream
 
@@ -296,3 +297,46 @@ async def test_dashboard_renders(client):
     r = await client.post(f"/admin/child/{cid}/credit",
                           data={"dollars": "1", "idem": "x", "csrf": "bogus"})
     assert r.status_code == 403
+
+# --- 17. admin can delete a child; keys/credits/history purged ---------------
+
+async def test_child_delete_purges_everything(client):
+    cid, key = await make_child("kid1", 5_000_000)
+    mock_upstream(lambda req: httpx.Response(200, json=completion_json(prompt=1000, completion=500)))
+    r = await client.post("/v1/chat/completions", headers=auth(key), json=chat_body(content=BIG))
+    assert r.status_code == 200
+
+    # admin login + grab CSRF token from the children page
+    async with database.session_scope() as s:
+        s.add(Setting(key="admin_password_hash", value=hash_password("hunter2")))
+    r = await client.post("/admin/login", data={"password": "hunter2"}, follow_redirects=False)
+    assert r.status_code == 303
+    r = await client.get("/admin/children")
+    csrf = re.search(r'name="csrf" value="([^"]+)"', r.text).group(1)
+
+    # wrong confirm slug -> rejected, nothing deleted
+    r = await client.post(f"/admin/child/{cid}/delete",
+                          data={"csrf": csrf, "confirm": "nope"}, follow_redirects=False)
+    assert r.status_code == 400
+    async with database.session_scope() as s:
+        assert await s.get(Child, cid) is not None
+
+    # correct slug -> child + every dependent row gone in one tx
+    r = await client.post(f"/admin/child/{cid}/delete",
+                          data={"csrf": csrf, "confirm": "kid1"}, follow_redirects=False)
+    assert r.status_code == 303 and "deleted=kid1" in r.headers["location"]
+    async with database.session_scope() as s:
+        assert await s.get(Child, cid) is None
+        for tbl in (ApiKey, Balance, RequestRecord, Reservation, LedgerEntry):
+            n = (await s.execute(
+                select(func.count()).select_from(tbl).where(tbl.child_id == cid)
+            )).scalar_one()
+            assert n == 0, tbl.__name__
+
+    # deleted child's key no longer authenticates
+    r = await client.get("/v1/models", headers=auth(key))
+    assert r.status_code == 401
+
+    # children page shows deletion flash
+    r = await client.get("/admin/children?deleted=kid1")
+    assert "Deleted child" in r.text and "kid1" in r.text

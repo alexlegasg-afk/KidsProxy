@@ -4,12 +4,23 @@
 {% if newkey %}
 <div class="card" style="border:2px solid var(--ok)">
   <h3>New API key — copy it now, it is shown once</h3>
-  <div class="key">{{ newkey }}</div>
+  <div class="row">
+    <div class="key" id="newkey" style="flex:1">{{ newkey }}</div>
+    <button type="button" onclick="copyKey(this)">Copy</button>
+  </div>
   <p class="muted">Base URL for the kid's app: <code>http://this-server:8000/v1</code></p>
 </div>
+<script>
+function copyKey(btn) {
+  navigator.clipboard.writeText(document.getElementById("newkey").textContent.trim()).then(function () {
+    btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy"; }, 1500);
+  });
+}
+</script>
 {% endif %}
 {% if request.query_params.get('created') %}<p class="muted">Created child <b>{{ request.query_params.get('created') }}</b>. Generate an API key below.</p>{% endif %}
 {% if request.query_params.get('credited') %}<p class="muted">Credited {{ request.query_params.get('credited') }}.</p>{% endif %}
+{% if request.query_params.get('deleted') %}<p class="muted">Deleted child <b>{{ request.query_params.get('deleted') }}</b> and all their keys, credits and history.</p>{% endif %}
 
 <h2>Add child</h2>
 <form method="post" action="/admin/children/create" class="row">
@@ -52,6 +63,14 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <input type="hidden" name="active" value="{{ 0 if row.c.active else 1 }}">
       <button class="sec">{{ "Pause account" if row.c.active else "Resume account" }}</button>
+    </form>
+    <form method="post" action="/admin/child/{{ row.c.id }}/delete" style="margin-top:.5rem"
+          onsubmit="return confirm('Delete {{ row.c.slug }} and ALL their keys, credits and history? This cannot be undone.')">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="row">
+        <div><label>Type slug to confirm</label><input name="confirm" placeholder="{{ row.c.slug }}" required></div>
+        <button class="danger">Delete child</button>
+      </div>
     </form>
   </div>
 </div>
