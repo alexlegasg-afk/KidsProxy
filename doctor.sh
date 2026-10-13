@@ -13,8 +13,10 @@ bad() { echo "FAIL  $*"; overall=1; }
 cause() { echo "      likely cause: $*"; }
 
 [[ -f .env ]] || { echo "FAIL  .env missing — run ./install.sh first"; exit 1; }
-# shellcheck source=/dev/null
-set -a; . ./.env; set +a
+set -a
+# shellcheck disable=SC1091  # .env is created at runtime by install.sh
+. ./.env
+set +a
 # Tolerate a base URL pasted with /v1 or trailing slash.
 UP="${KP_UPSTREAM_BASE_URL%/}"; UP="${UP%/v1}"
 
