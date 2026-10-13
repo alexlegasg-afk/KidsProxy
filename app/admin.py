@@ -18,13 +18,13 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, URLSafeSerializer
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text
 
 from . import billing
 from .auth import create_child, hash_password, rotate_key, verify_password
 from .config import get_settings
 from .database import session_scope
-from .models import ApiKey, Balance, Child, LedgerEntry, Pricing, RequestRecord, Setting
+from .models import ApiKey, Balance, Child, LedgerEntry, Pricing, RequestRecord, Reservation, Setting
 
 router = APIRouter(prefix="/admin")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -227,6 +227,22 @@ async def child_create(request: Request, slug: str = Form(...), name: str = Form
         await create_child(s, slug, name.strip() or slug)
     return RedirectResponse(f"/admin/children?created={slug}", status_code=303)
 
+@router.post("/child/{child_id}/delete")
+async def child_delete(request: Request, child_id: int, csrf: str = Form(...), confirm: str = Form(...)):
+    await require_admin(request)
+    check_csrf(request, csrf)
+    async with session_scope() as s:
+        c = await s.get(Child, child_id)
+        if c is None:
+            return HTMLResponse("No such child", status_code=404)
+        if confirm != c.slug:
+            return HTMLResponse("Type the child's slug exactly to confirm deletion.", status_code=400)
+        slug = c.slug
+        # No FK constraints exist; purge the child's rows in one transaction.
+        for tbl in (ApiKey, Balance, RequestRecord, Reservation, LedgerEntry):
+            await s.execute(delete(tbl).where(tbl.child_id == child_id))
+        await s.delete(c)
+    return RedirectResponse(f"/admin/children?deleted={slug}", status_code=303)
 
 @router.post("/child/{child_id}/key")
 async def child_key(request: Request, child_id: int, csrf: str = Form(...)):
