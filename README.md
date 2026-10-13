@@ -145,6 +145,32 @@ launchctl load ~/Library/LaunchAgents/com.kidsproxy.plist
 uv run --group dev pytest -q    # 16 tests: billing math, races, caps, uncertain flow, dashboard
 ```
 
+## Install & update (one command each)
+
+```sh
+./install.sh    # one-time setup: deps, .env (asks 3 questions), database, admin password,
+                # children + a ready-to-copy models.yml per child in ./generated/ (600, gitignored),
+                # optional launchd agent; ends with ./doctor.sh
+./update.sh     # refuses a dirty tree; backs up kidsproxy.db*, git pull --ff-only, uv sync,
+                # runs tests, restarts the launchd job (or prints manual steps), then ./doctor.sh
+./doctor.sh     # smoke test: PASS/FAIL per hop (proxy up, upstream auth, non-streaming +
+                # streaming request through the proxy) with the likely cause for each failure
+```
+
+All three are idempotent and shellcheck-clean; none of them prints API keys (child keys land only in `./generated/<slug>-models.yml`, mode 600). `update.sh` never touches `.env` or `kidsproxy.db` (it copies the db to `backups/` with a timestamp first).
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `./doctor.sh` hop 1 FAIL: nothing on 8787 | launchd agent not loaded / server crashed | `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.kidsproxy.plist`; check `/tmp/kidsproxy.log` |
+| Hop 2 FAIL: 401 from upstream | `KP_UPSTREAM_API_KEY` ≠ 9router master key | fix `.env`, restart |
+| Hop 2 FAIL: 000 / connection refused | `KP_UPSTREAM_BASE_URL` wrong or 9router down | base URL = 9router root, **no** `/v1` suffix |
+| Hop 3 FAIL: 401 | child key rotated/revoked, or child paused | dashboard → rotate key again, or `uv run python -m app.cli rotate-key <slug>` |
+| Hop 3 FAIL: 402 | child balance below minimum | dashboard credit button or `uv run python -m app.cli credit <slug> 5` |
+| Hop 3 FAIL: 502 on non-streaming call | stale KidsProxy before the SSE hotfix | `./update.sh` (pull + restart) |
+| `./update.sh` refuses to run | dirty working tree | commit or stash, re-run |
+
 ## Security notes
 
 - Child keys: SHA-256 hash at rest; plaintext shown once, unrecoverable.
