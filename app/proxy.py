@@ -127,6 +127,8 @@ async def chat_completions(request: Request):
     if stream:
         # Ask for a final usage chunk; harmless if ignored upstream.
         fwd_body["stream_options"] = {"include_usage": True}
+    else:
+        fwd_body["stream"] = False  # 9router defaults to SSE when omitted
     headers = {"content-type": "application/json", "x-request-id": req_id}
     if s.upstream_api_key:  # master key, server-side only; child keys never forwarded
         headers["authorization"] = f"Bearer {s.upstream_api_key}"
