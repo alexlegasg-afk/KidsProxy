@@ -4,6 +4,7 @@ Live integration procedure: see README "Manual integration test".
 """
 
 import asyncio
+import json
 from datetime import datetime, timezone
 
 import httpx
@@ -296,3 +297,28 @@ async def test_dashboard_renders(client):
     r = await client.post(f"/admin/child/{cid}/credit",
                           data={"dollars": "1", "idem": "x", "csrf": "bogus"})
     assert r.status_code == 403
+
+# --- 16. non-streaming request forces stream=false upstream ------------------
+
+async def test_nonstream_forces_stream_false_upstream(client):
+    """9router defaults to SSE when 'stream' is omitted; _nonstream() would then
+    fail r.json() -> 502. Non-streaming requests must forward stream=false."""
+    _, key = await make_child("kid1", 5_000_000)
+    seen: dict = {}
+
+    def handler(req: httpx.Request):
+        fwd = json.loads(req.content)
+        seen.update(fwd)
+        if fwd.get("stream") is False:
+            return httpx.Response(200, json=completion_json(prompt=1000, completion=500))
+        sse = (json.dumps(completion_json(prompt=1000, completion=500))
+               + "\n\ndata: [DONE]\n\n").encode()
+        return httpx.Response(200, content=sse, headers={"content-type": "text/event-stream"})
+
+    mock_upstream(handler)
+    r = await client.post("/v1/chat/completions", headers=auth(key), json=chat_body(content=BIG))
+    assert r.status_code == 200
+    data = r.json()
+    assert data["choices"][0]["message"]["content"] == "ok"
+    assert seen.get("stream") is False  # upstream received explicit stream=false
+    assert "stream_options" not in seen  # streaming-only knob stays off
